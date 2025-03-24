@@ -5,7 +5,7 @@ Python SDK for [Plum AI](https://getplum.ai).
 ## Installation
 
 ```bash
-pip install plum_sdk
+pip install plum-sdk
 ```
 
 ## Usage
