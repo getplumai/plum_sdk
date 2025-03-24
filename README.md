@@ -15,11 +15,11 @@ The Plum SDK allows you to upload training examples along with a system prompt t
 ### Basic Usage
 
 ```python
-from plum_sdk import PlumSDK, TrainingExample
+from plum_sdk import PlumClient, TrainingExample
 
 # Initialize the SDK with your API key
 api_key = "YOUR_API_KEY"
-sdk = PlumSDK(api_key)
+plum_client = PlumClient(api_key)
 
 # Create training examples
 training_examples = [
@@ -37,7 +37,7 @@ training_examples = [
 system_prompt = "You are a helpful assistant that provides accurate and concise answers."
 
 # Upload the data
-response = sdk.upload_data(training_examples, system_prompt)
+response = plum_client.upload_data(training_examples, system_prompt)
 print(response)
 ```
 
@@ -46,12 +46,12 @@ print(response)
 The SDK will raise exceptions for non-200 responses:
 
 ```python
-from plum_sdk import PlumSDK
+from plum_sdk import PlumClient
 import requests
 
 try:
-    sdk = PlumSDK(api_key="YOUR_API_KEY")
-    response = sdk.upload_data(training_examples, system_prompt)
+    plum_client = PlumClient(api_key="YOUR_API_KEY")
+    response = plum_client.upload_data(training_examples, system_prompt)
     print(response)
 except requests.exceptions.HTTPError as e:
     print(f"Error uploading data: {e}")
@@ -59,7 +59,7 @@ except requests.exceptions.HTTPError as e:
 
 ## API Reference
 
-### PlumSDK
+### PlumClient
 
 #### Constructor
 - `api_key` (str): Your Plum API key
