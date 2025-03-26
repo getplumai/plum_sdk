@@ -10,7 +10,7 @@ pip install plum-sdk
 
 ## Usage
 
-The Plum SDK allows you to upload training examples along with a system prompt to evaluate and improve your LLM.
+The Plum SDK allows you to upload training examples, generate and define metric questions, and evaluate your LLM's performance.
 
 ### Basic Usage
 
@@ -63,12 +63,38 @@ except requests.exceptions.HTTPError as e:
 
 #### Constructor
 - `api_key` (str): Your Plum API key
+- `base_url` (str, optional): Custom base URL for the Plum API
 
 #### Methods
-- `upload_data(training_examples: List[TrainingExample], system_prompt: str)`: Uploads training examples and system prompt to Plum DB
+- `upload_data(training_examples: List[TrainingExample], system_prompt: str) -> UploadResponse`: 
+  Uploads training examples and system prompt to Plum DB
+  
+- `generate_metric_questions(system_prompt: str) -> MetricsQuestions`: 
+  Automatically generates evaluation metric questions based on a system prompt
 
-### TrainingExample
+- `define_metric_questions(questions: List[str]) -> MetricsResponse`: 
+  Defines custom evaluation metric questions
 
+- `evaluate(metrics_id: str, data_id: str) -> EvaluationResults`: 
+  Evaluates uploaded data against defined metrics and returns detailed scoring results
+
+### Data Classes
+
+#### TrainingExample
 A dataclass representing a single training example:
 - `input` (str): The input text
 - `output` (str): The output text produced by your LLM
+
+#### MetricsQuestions
+Contains generated evaluation metrics:
+- `metrics_id` (str): Unique identifier for the metrics
+- `definitions` (List[str]): List of generated metric questions
+
+#### MetricsResponse
+Response from defining custom metrics:
+- `metrics_id` (str): Unique identifier for the defined metrics
+
+#### EvaluationResults
+Contains evaluation results:
+- `eval_results_id` (str): Unique identifier for the evaluation results
+- `scores` (List[Dict]): Detailed scoring information including mean, median, standard deviation, and confidence intervals
