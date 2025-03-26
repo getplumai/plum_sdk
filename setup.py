@@ -2,9 +2,11 @@ from setuptools import setup, find_packages
 
 setup(
     name='plum_sdk',
-    version='0.0.3',
+    version='0.0.5',
     packages=find_packages(),
     install_requires=['requests'],
+    tests_require=['pytest'],
+    python_requires='>=3.6',
     description='Python SDK for Plum AI',
     author='Plum AI',
     author_email='founders@getplum.ai',
