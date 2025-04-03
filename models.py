@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List,Optional
+from typing import List, Optional
 
 
 @dataclass
@@ -7,14 +7,17 @@ class TrainingExample:
     input: str
     output: str
 
+
 @dataclass
 class UploadResponse:
     id: str
+
 
 @dataclass
 class MetricsQuestions:
     metrics_id: str
     definitions: List[str]
+
 
 @dataclass
 class Question:
@@ -26,14 +29,17 @@ class Question:
     prompt: Optional[str] = None
     stream_id: Optional[str] = None
 
+
 @dataclass
 class MetricsResponse:
     metrics_id: str
+
 
 @dataclass
 class ScoringPair:
     pair_id: str
     score_reason: str
+
 
 @dataclass
 class MetricScore:
@@ -48,14 +54,17 @@ class MetricScore:
     max_score: float
     lowest_scoring_pairs: List[ScoringPair]
 
+
 @dataclass
 class EvaluationResponse:
     eval_results_id: str
     scores: List[MetricScore]
     pair_count: int
 
+
 @dataclass
 class PairUploadResponse:
     """Response from uploading a pair to a dataset."""
+
     dataset_id: str
     pair_id: str
