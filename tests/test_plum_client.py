@@ -3,7 +3,14 @@ from unittest.mock import Mock, patch
 import requests
 import pytest
 from plum_sdk import PlumClient, TrainingExample
-from plum_sdk.models import PairUploadResponse, TrainingExample, UploadResponse, MetricsQuestions, MetricsResponse
+from plum_sdk.models import (
+    PairUploadResponse,
+    TrainingExample,
+    UploadResponse,
+    MetricsQuestions,
+    MetricsResponse,
+)
+
 
 class TestPlumClient(unittest.TestCase):
     def setUp(self):
@@ -15,7 +22,7 @@ class TestPlumClient(unittest.TestCase):
         self.assertEqual(self.client.api_key, self.api_key)
         self.assertEqual(self.client.base_url, self.base_url)
 
-    @patch('requests.post')
+    @patch("requests.post")
     def test_upload_data_success(self, mock_post):
         mock_response = Mock()
         mock_response.status_code = 200
@@ -24,7 +31,7 @@ class TestPlumClient(unittest.TestCase):
 
         examples = [
             TrainingExample(input="test input 1", output="test output 1"),
-            TrainingExample(input="test input 2", output="test output 2")
+            TrainingExample(input="test input 2", output="test output 2"),
         ]
         system_prompt = "test system prompt"
 
@@ -33,7 +40,7 @@ class TestPlumClient(unittest.TestCase):
         mock_post.assert_called_once()
         self.assertEqual(result, UploadResponse(id="data:0:0000000"))
 
-    @patch('requests.post')
+    @patch("requests.post")
     def test_upload_data_failure(self, mock_post):
         mock_response = Mock()
         mock_response.status_code = 400
@@ -45,26 +52,31 @@ class TestPlumClient(unittest.TestCase):
 
         with self.assertRaises(requests.exceptions.HTTPError):
             self.client.upload_data(examples, system_prompt)
-    
-    @patch('requests.post')
+
+    @patch("requests.post")
     def test_generate_metric_questions(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {
             "metrics_id": "eval:metrics:0:0000",
-            "definitions": ["Is the code maintainable?", "Is the code well-documented?"]
+            "definitions": [
+                "Is the code maintainable?",
+                "Is the code well-documented?",
+            ],
         }
         mock_response.status_code = 200
         mock_post.return_value = mock_response
 
-        result = self.client.generate_metric_questions("Generate maintainable code. It should be well-documented.")
-        
+        result = self.client.generate_metric_questions(
+            "Generate maintainable code. It should be well-documented."
+        )
+
         assert isinstance(result, MetricsQuestions)
         assert len(result.definitions) == 2
         assert "maintainable" in result.definitions[0]
-        
+
         mock_post.assert_called_once()
 
-    @patch('requests.post')
+    @patch("requests.post")
     def test_define_metric_questions(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {"metrics_id": "eval:metrics:0:000000"}
@@ -73,16 +85,16 @@ class TestPlumClient(unittest.TestCase):
 
         questions = ["Is the code readable?", "Are there tests?"]
         result = self.client.define_metric_questions(questions)
-        
+
         assert isinstance(result, MetricsResponse)
         mock_post.assert_called_once()
 
-    @patch('requests.post')
+    @patch("requests.post")
     def test_evaluate(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {
             "eval_results_id": "eval:results:0:000000",
-            "scores":[
+            "scores": [
                 {
                     "metric": "Is the code readable?",
                     "mean_score": 5,
@@ -93,14 +105,14 @@ class TestPlumClient(unittest.TestCase):
                     "median_score": 5,
                     "min_score": 5,
                     "max_score": 5,
-                    "lowest_scoring_pairs": []
-                 }
-            ]
+                    "lowest_scoring_pairs": [],
+                }
+            ],
         }
         mock_response.status_code = 200
         mock_post.return_value = mock_response
 
-    @patch('requests.post')
+    @patch("requests.post")
     def test_upload_pair(self, mock_post):
         # Setup
         test_api_key = "test-api-key"
@@ -114,20 +126,20 @@ class TestPlumClient(unittest.TestCase):
         expected_headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Authorization": test_api_key
+            "Authorization": test_api_key,
         }
         expected_payload = {
             "input": test_input,
             "output": test_output,
             "labels": test_labels,
-            "id": test_pair_id
+            "id": test_pair_id,
         }
 
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "dataset_id": test_dataset_id,
-            "pair_id": test_pair_id
+            "pair_id": test_pair_id,
         }
 
         mock_post.return_value = mock_response
@@ -139,20 +151,18 @@ class TestPlumClient(unittest.TestCase):
             input_text=test_input,
             output_text=test_output,
             pair_id=test_pair_id,
-            labels=test_labels
+            labels=test_labels,
         )
 
         # Verify
         mock_post.assert_called_once_with(
-            expected_url,
-            headers=expected_headers,
-            json=expected_payload
+            expected_url, headers=expected_headers, json=expected_payload
         )
         assert isinstance(result, PairUploadResponse)
         assert result.dataset_id == test_dataset_id
         assert result.pair_id == test_pair_id
 
-    @patch('requests.post')
+    @patch("requests.post")
     def test_upload_pair_without_optional_params(self, mock_post):
         # Setup
         test_api_key = "test-api-key"
@@ -164,19 +174,15 @@ class TestPlumClient(unittest.TestCase):
         expected_headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Authorization": test_api_key
+            "Authorization": test_api_key,
         }
-        expected_payload = {
-            "input": test_input,
-            "output": test_output,
-            "labels": []
-        }
+        expected_payload = {"input": test_input, "output": test_output, "labels": []}
 
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "dataset_id": test_dataset_id,
-            "pair_id": "auto-generated-id"
+            "pair_id": "auto-generated-id",
         }
 
         mock_post.return_value = mock_response
@@ -184,22 +190,18 @@ class TestPlumClient(unittest.TestCase):
         # Execute
         client = PlumClient(test_api_key)
         result = client.upload_pair(
-            dataset_id=test_dataset_id,
-            input_text=test_input,
-            output_text=test_output
+            dataset_id=test_dataset_id, input_text=test_input, output_text=test_output
         )
 
         # Verify
         mock_post.assert_called_once_with(
-            expected_url,
-            headers=expected_headers,
-            json=expected_payload
+            expected_url, headers=expected_headers, json=expected_payload
         )
         assert isinstance(result, PairUploadResponse)
         assert result.dataset_id == test_dataset_id
         assert result.pair_id == "auto-generated-id"
 
-    @patch('requests.post')
+    @patch("requests.post")
     def test_upload_pair_error_handling(self, mock_post):
         # Setup
         test_api_key = "test-api-key"
@@ -209,7 +211,9 @@ class TestPlumClient(unittest.TestCase):
 
         mock_response = Mock()
         mock_response.status_code = 404
-        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("Dataset not found")
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "Dataset not found"
+        )
 
         mock_post.return_value = mock_response
 
@@ -219,5 +223,5 @@ class TestPlumClient(unittest.TestCase):
             client.upload_pair(
                 dataset_id=test_dataset_id,
                 input_text=test_input,
-                output_text=test_output
+                output_text=test_output,
             )

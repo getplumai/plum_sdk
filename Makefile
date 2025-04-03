@@ -20,9 +20,14 @@ test:
 	@pytest -v tests
 
 build:
-	@python setup.py sdist
+	@python -m black .
+	@mkdir -p dist
+	@rm -f dist/*.tar.gz || true
+	@python -m build --sdist
+	@echo "Built package. Check that it contains all required files with: tar -tvf dist/*.tar.gz"
 
 publish:
-	@twine upload dist/*
+	@echo "Publishing to PyPI..."
+	@python -m twine upload dist/*
 
 all: test build
