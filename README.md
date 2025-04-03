@@ -1,5 +1,8 @@
 # Plum SDK
 
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![PyPI version](https://badge.fury.io/py/plum-sdk.svg)](https://badge.fury.io/py/plum-sdk)
+
 Python SDK for [Plum AI](https://getplum.ai).
 
 ## Installation
@@ -122,4 +125,3 @@ Response from defining custom metrics:
 Contains evaluation results:
 - `eval_results_id` (str): Unique identifier for the evaluation results
 - `scores` (List[Dict]): Detailed scoring information including mean, median, standard deviation, and confidence intervals
-```
