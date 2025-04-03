@@ -1,58 +1,7 @@
 import requests
-from dataclasses import dataclass
 from typing import List, Optional
+from .models import TrainingExample, UploadResponse, MetricsQuestions, MetricsResponse, EvaluationResponse, PairUploadResponse
 
-@dataclass
-class TrainingExample:
-    input: str
-    output: str
-
-@dataclass
-class UploadResponse:
-    id: str
-
-@dataclass
-class MetricsQuestions:
-    metrics_id: str
-    definitions: List[str]
-
-@dataclass
-class Question:
-    id: str
-    input: str
-    status: str
-    created_at: str
-    updated_at: str
-    prompt: Optional[str] = None
-    stream_id: Optional[str] = None
-
-@dataclass
-class MetricsResponse:
-    metrics_id: str
-
-@dataclass
-class ScoringPair:
-    pair_id: str
-    score_reason: str
-
-@dataclass
-class MetricScore:
-    metric: str
-    mean_score: float
-    std_dev: float
-    ci_low: float
-    ci_high: float
-    ci_confidence: float
-    median_score: float
-    min_score: float
-    max_score: float
-    lowest_scoring_pairs: List[ScoringPair]
-
-@dataclass
-class EvaluationResponse:
-    eval_results_id: str
-    scores: List[MetricScore]
-    pair_count: int
 
 class PlumClient:
     def __init__(self, api_key: str, base_url: str = "https://beta.getplum.ai/v1"):
@@ -84,7 +33,56 @@ class PlumClient:
              return UploadResponse(**data)
         else:
             response.raise_for_status()
-
+    
+    def upload_pair(self, 
+                   dataset_id: str, 
+                   input_text: str, 
+                   output_text: str, 
+                   pair_id: Optional[str] = None,
+                   labels: Optional[List[str]] = None) -> PairUploadResponse:
+        """
+        Upload a single input-output pair to an existing seed dataset.
+        
+        Args:
+            dataset_id: ID of the existing seed dataset to add the pair to
+            input_text: The user prompt/input text
+            output_text: The output/response text
+            pair_id: Optional custom ID for the pair (will be auto-generated if not provided)
+            labels: Optional list of labels to associate with this pair
+            
+        Returns:
+            Dict containing the pair_id and corpus_id
+            
+        Raises:
+            requests.HTTPError: If the request fails
+        """
+        if labels is None:
+            labels = []
+            
+        endpoint = f"{self.base_url}/data/seed/{dataset_id}/pair"
+        
+        payload = {
+            "input": input_text,
+            "output": output_text,
+            "labels": labels
+        }
+        
+        if pair_id:
+            payload["id"] = pair_id
+            
+        response = requests.post(
+            endpoint,
+            headers=self.headers,
+            json=payload
+        )
+        
+        response.raise_for_status()
+        response_data = response.json()
+        return PairUploadResponse(
+            dataset_id=response_data["dataset_id"],
+            pair_id=response_data["pair_id"]
+        )
+    
     def generate_metric_questions(self, system_prompt: str) -> MetricsQuestions:
         url = f"{self.base_url}/questions"
 

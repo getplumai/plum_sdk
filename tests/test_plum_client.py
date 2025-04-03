@@ -1,8 +1,9 @@
 import unittest
 from unittest.mock import Mock, patch
 import requests
+import pytest
 from plum_sdk import PlumClient, TrainingExample
-from ..plum_sdk import MetricsQuestions, MetricsResponse, UploadResponse
+from plum_sdk.models import PairUploadResponse, TrainingExample, UploadResponse, MetricsQuestions, MetricsResponse
 
 class TestPlumClient(unittest.TestCase):
     def setUp(self):
@@ -98,3 +99,125 @@ class TestPlumClient(unittest.TestCase):
         }
         mock_response.status_code = 200
         mock_post.return_value = mock_response
+
+    @patch('requests.post')
+    def test_upload_pair(self, mock_post):
+        # Setup
+        test_api_key = "test-api-key"
+        test_dataset_id = "test-dataset-id"
+        test_input = "This is a test input"
+        test_output = "This is a test output"
+        test_pair_id = "test-pair-id"
+        test_labels = ["label1", "label2"]
+
+        expected_url = "https://beta.getplum.ai/v1/data/seed/test-dataset-id/pair"
+        expected_headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": test_api_key
+        }
+        expected_payload = {
+            "input": test_input,
+            "output": test_output,
+            "labels": test_labels,
+            "id": test_pair_id
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "dataset_id": test_dataset_id,
+            "pair_id": test_pair_id
+        }
+
+        mock_post.return_value = mock_response
+
+        # Execute
+        client = PlumClient(test_api_key)
+        result = client.upload_pair(
+            dataset_id=test_dataset_id,
+            input_text=test_input,
+            output_text=test_output,
+            pair_id=test_pair_id,
+            labels=test_labels
+        )
+
+        # Verify
+        mock_post.assert_called_once_with(
+            expected_url,
+            headers=expected_headers,
+            json=expected_payload
+        )
+        assert isinstance(result, PairUploadResponse)
+        assert result.dataset_id == test_dataset_id
+        assert result.pair_id == test_pair_id
+
+    @patch('requests.post')
+    def test_upload_pair_without_optional_params(self, mock_post):
+        # Setup
+        test_api_key = "test-api-key"
+        test_dataset_id = "test-dataset-id"
+        test_input = "This is a test input"
+        test_output = "This is a test output"
+
+        expected_url = "https://beta.getplum.ai/v1/data/seed/test-dataset-id/pair"
+        expected_headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": test_api_key
+        }
+        expected_payload = {
+            "input": test_input,
+            "output": test_output,
+            "labels": []
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "dataset_id": test_dataset_id,
+            "pair_id": "auto-generated-id"
+        }
+
+        mock_post.return_value = mock_response
+
+        # Execute
+        client = PlumClient(test_api_key)
+        result = client.upload_pair(
+            dataset_id=test_dataset_id,
+            input_text=test_input,
+            output_text=test_output
+        )
+
+        # Verify
+        mock_post.assert_called_once_with(
+            expected_url,
+            headers=expected_headers,
+            json=expected_payload
+        )
+        assert isinstance(result, PairUploadResponse)
+        assert result.dataset_id == test_dataset_id
+        assert result.pair_id == "auto-generated-id"
+
+    @patch('requests.post')
+    def test_upload_pair_error_handling(self, mock_post):
+        # Setup
+        test_api_key = "test-api-key"
+        test_dataset_id = "test-dataset-id"
+        test_input = "This is a test input"
+        test_output = "This is a test output"
+
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("Dataset not found")
+
+        mock_post.return_value = mock_response
+
+        # Execute & Verify
+        client = PlumClient(test_api_key)
+        with pytest.raises(requests.exceptions.HTTPError, match="Dataset not found"):
+            client.upload_pair(
+                dataset_id=test_dataset_id,
+                input_text=test_input,
+                output_text=test_output
+            )

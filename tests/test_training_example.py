@@ -1,6 +1,5 @@
 import unittest
-import pytest
-from plum_sdk import TrainingExample, PlumClient
+from plum_sdk import TrainingExample
 
 class TestTrainingExample(unittest.TestCase):
     def test_training_example_creation(self):
