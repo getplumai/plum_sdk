@@ -41,6 +41,22 @@ response = plum_client.upload_data(training_examples, system_prompt)
 print(response)
 ```
 
+### Adding Individual Examples to an Existing Dataset
+
+You can add additional training examples to an existing dataset:
+
+```python
+# Add a single example to an existing dataset
+dataset_id = "data:0:123456" # ID from previous upload_data response
+response = plum_client.upload_pair(
+    dataset_id=dataset_id,
+    input_text="What is the tallest mountain in the world?",
+    output_text="Mount Everest is the tallest mountain in the world, with a height of 8,848.86 meters (29,031.7 feet).",
+    labels=["geography", "mountains"]  # Optional labels for categorization
+)
+print(f"Added pair with ID: {response.pair_id}")
+```
+
 ### Error Handling
 
 The SDK will raise exceptions for non-200 responses:
@@ -69,6 +85,9 @@ except requests.exceptions.HTTPError as e:
 - `upload_data(training_examples: List[TrainingExample], system_prompt: str) -> UploadResponse`: 
   Uploads training examples and system prompt to Plum DB
   
+- `upload_pair(dataset_id: str, input_text: str, output_text: str, pair_id: Optional[str] = None, labels: Optional[List[str]] = None) -> PairUploadResponse`:
+  Adds a single input-output pair to an existing dataset
+  
 - `generate_metric_questions(system_prompt: str) -> MetricsQuestions`: 
   Automatically generates evaluation metric questions based on a system prompt
 
@@ -85,6 +104,11 @@ A dataclass representing a single training example:
 - `input` (str): The input text
 - `output` (str): The output text produced by your LLM
 
+#### PairUploadResponse
+Response from uploading a pair to a dataset:
+- `dataset_id` (str): ID of the dataset the pair was added to
+- `pair_id` (str): Unique identifier for the uploaded pair
+
 #### MetricsQuestions
 Contains generated evaluation metrics:
 - `metrics_id` (str): Unique identifier for the metrics
@@ -98,3 +122,4 @@ Response from defining custom metrics:
 Contains evaluation results:
 - `eval_results_id` (str): Unique identifier for the evaluation results
 - `scores` (List[Dict]): Detailed scoring information including mean, median, standard deviation, and confidence intervals
+```
