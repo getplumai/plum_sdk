@@ -1,4 +1,4 @@
-from .models import (
+from plum_sdk.models import (
     TrainingExample,
     UploadResponse,
     MetricsResponse,
@@ -9,7 +9,7 @@ from .models import (
     EvaluationResponse,
     PairUploadResponse,
 )
-from .plum_sdk import PlumClient
+from plum_sdk.plum_sdk import PlumClient
 
 __all__ = [
     "PlumClient",
