@@ -1,6 +1,6 @@
 import requests
 from typing import List, Optional
-from .models import (
+from plum_sdk.models import (
     TrainingExample,
     UploadResponse,
     MetricsQuestions,
@@ -45,10 +45,12 @@ class PlumClient:
         """
         url = f"{self.base_url}/data/seed"
 
-        data = [
-            {"input": example.input, "output": example.output}
-            for example in training_examples
-        ]
+        data = []
+        for example in training_examples:
+            pair = {"input": example.input, "output": example.output}
+            if hasattr(example, 'id') and example.id:
+                pair["id"] = example.id
+            data.append(pair)
 
         payload = {"data": data, "system_prompt": system_prompt}
 

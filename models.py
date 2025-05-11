@@ -4,6 +4,7 @@ from typing import List, Optional
 
 @dataclass
 class TrainingExample:
+    id: str
     input: str
     output: str
 
