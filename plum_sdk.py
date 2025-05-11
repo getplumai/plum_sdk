@@ -48,7 +48,7 @@ class PlumClient:
         data = []
         for example in training_examples:
             pair = {"input": example.input, "output": example.output}
-            if hasattr(example, "id") and example.id:
+            if hasattr(example, 'id') and example.id:
                 pair["id"] = example.id
             data.append(pair)
 
