@@ -33,6 +33,11 @@ training_examples = [
     TrainingExample(
         input="How do I make pasta?",
         output="1. Boil water\n2. Add salt\n3. Cook pasta until al dente"
+    ),
+    TrainingExample(
+        id="custom_id_123",
+        input="What is machine learning?",
+        output="Machine learning is a branch of artificial intelligence that focuses on building systems that learn from data."
     )
 ]
 
@@ -106,6 +111,7 @@ except requests.exceptions.HTTPError as e:
 A dataclass representing a single training example:
 - `input` (str): The input text
 - `output` (str): The output text produced by your LLM
+- `id` (Optional[str]): Optional custom identifier for the example
 
 #### PairUploadResponse
 Response from uploading a pair to a dataset:

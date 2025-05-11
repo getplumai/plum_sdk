@@ -13,7 +13,7 @@ else:
 
 setup(
     name="plum_sdk",
-    version="0.1.7",
+    version="0.1.8",
     packages=packages,
     package_dir=package_dir,
     py_modules=["plum_sdk"] if not packages else [],
