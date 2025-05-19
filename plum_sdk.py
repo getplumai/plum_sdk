@@ -1,6 +1,6 @@
 import requests
 from typing import List, Optional
-from plum_sdk.models import (
+from .models import (
     TrainingExample,
     UploadResponse,
     MetricsQuestions,
