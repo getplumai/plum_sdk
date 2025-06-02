@@ -94,6 +94,7 @@ class TestPlumClient(unittest.TestCase):
         mock_response = Mock()
         mock_response.json.return_value = {
             "eval_results_id": "eval:results:0:000000",
+            "pair_count": 100,
             "scores": [
                 {
                     "metric": "Is the code readable?",
@@ -225,3 +226,227 @@ class TestPlumClient(unittest.TestCase):
                 input_text=test_input,
                 output_text=test_output,
             )
+
+    @patch("requests.post")
+    def test_evaluate_with_pair_query_params(self, mock_post):
+        # Setup
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "eval_results_id": "eval:results:0:000000",
+            "pair_count": 50,
+            "scores": [
+                {
+                    "metric": "Is the code readable?",
+                    "mean_score": 5,
+                    "std_dev": 0,
+                    "ci_low": 5,
+                    "ci_high": 5,
+                    "ci_confidence": 0.95,
+                    "median_score": 5,
+                    "min_score": 5,
+                    "max_score": 5,
+                    "lowest_scoring_pairs": [],
+                }
+            ],
+        }
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        # Test with pair query parameters
+        result = self.client.evaluate(
+            data_id="data:0:123456",
+            metrics_id="eval:metrics:0:000000",
+            latest_n_pairs=50,
+            pair_label="geography"
+        )
+
+        # Verify the request was made with correct payload
+        expected_payload = {
+            "seed_data_id": "data:0:123456",
+            "metrics_id": "eval:metrics:0:000000",
+            "pair_query": {
+                "latest_n_pairs": 50,
+                "pair_label": "geography"
+            }
+        }
+        
+        mock_post.assert_called_once_with(
+            f"{self.base_url}/evaluate",
+            json=expected_payload,
+            headers=self.client.headers
+        )
+
+    @patch("requests.post")
+    def test_evaluate_synthetic_data(self, mock_post):
+        # Setup
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "eval_results_id": "eval:results:0:000000",
+            "pair_count": 100,
+            "scores": []
+        }
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        # Test evaluating synthetic data
+        result = self.client.evaluate(
+            data_id="synth:0:123456",
+            metrics_id="eval:metrics:0:000000",
+            is_synthetic=True,
+            latest_n_pairs=100
+        )
+
+        # Verify synthetic_data_id is used instead of seed_data_id
+        expected_payload = {
+            "synthetic_data_id": "synth:0:123456",
+            "metrics_id": "eval:metrics:0:000000",
+            "pair_query": {
+                "latest_n_pairs": 100
+            }
+        }
+        
+        mock_post.assert_called_once_with(
+            f"{self.base_url}/evaluate",
+            json=expected_payload,
+            headers=self.client.headers
+        )
+
+    @patch("requests.post")
+    def test_evaluate_without_pair_query(self, mock_post):
+        # Setup
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "eval_results_id": "eval:results:0:000000",
+            "pair_count": 150,
+            "scores": []
+        }
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        # Test without pair query parameters
+        result = self.client.evaluate(
+            data_id="data:0:123456",
+            metrics_id="eval:metrics:0:000000"
+        )
+
+        # Verify no pair_query is included when no filtering parameters are provided
+        expected_payload = {
+            "seed_data_id": "data:0:123456",
+            "metrics_id": "eval:metrics:0:000000"
+        }
+        
+        mock_post.assert_called_once_with(
+            f"{self.base_url}/evaluate",
+            json=expected_payload,
+            headers=self.client.headers
+        )
+
+    @patch("requests.post")
+    def test_augment_basic(self, mock_post):
+        # Setup
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "synthetic_data_id": "synth:0:123456",
+            "created_at": "2024-01-01T00:00:00Z",
+            "seed_data_size": 10,
+            "synthetic_data_size": 30
+        }
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        # Test basic augmentation
+        result = self.client.augment(
+            seed_data_id="data:0:123456",
+            multiple=3
+        )
+
+        # Verify the request
+        expected_payload = {
+            "multiple": 3,
+            "seed_data_id": "data:0:123456"
+        }
+        
+        mock_post.assert_called_once_with(
+            f"{self.base_url}/augment",
+            json=expected_payload,
+            headers=self.client.headers
+        )
+        
+        assert result["synthetic_data_id"] == "synth:0:123456"
+
+    @patch("requests.post")
+    def test_augment_with_all_params(self, mock_post):
+        # Setup
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "synthetic_data_id": "synth:0:123456",
+            "created_at": "2024-01-01T00:00:00Z"
+        }
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        # Test augmentation with all parameters
+        result = self.client.augment(
+            seed_data_id="data:0:123456",
+            multiple=2,
+            eval_results_id="eval:results:0:000000",
+            latest_n_pairs=50,
+            pair_label="geography",
+            target_metric="accuracy"
+        )
+
+        # Verify the request includes all parameters
+        expected_payload = {
+            "multiple": 2,
+            "seed_data_id": "data:0:123456",
+            "eval_results_id": "eval:results:0:000000",
+            "target_metric": "accuracy",
+            "pair_query": {
+                "latest_n_pairs": 50,
+                "pair_label": "geography"
+            }
+        }
+        
+        mock_post.assert_called_once_with(
+            f"{self.base_url}/augment",
+            json=expected_payload,
+            headers=self.client.headers
+        )
+
+    @patch("requests.post")
+    def test_augment_minimal_params(self, mock_post):
+        # Setup
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "synthetic_data_id": "synth:0:123456"
+        }
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        # Test augmentation with minimal parameters
+        result = self.client.augment(multiple=5)
+
+        # Verify only multiple is included when other params are None
+        expected_payload = {
+            "multiple": 5
+        }
+        
+        mock_post.assert_called_once_with(
+            f"{self.base_url}/augment",
+            json=expected_payload,
+            headers=self.client.headers
+        )
+
+    @patch("requests.post")
+    def test_augment_error_handling(self, mock_post):
+        # Setup
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "Internal server error"
+        )
+        mock_post.return_value = mock_response
+
+        # Execute & Verify
+        with pytest.raises(requests.exceptions.HTTPError, match="Internal server error"):
+            self.client.augment(seed_data_id="data:0:123456", multiple=2)

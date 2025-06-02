@@ -48,7 +48,7 @@ class PlumClient:
         data = []
         for example in training_examples:
             pair = {"input": example.input, "output": example.output}
-            if hasattr(example, 'id') and example.id:
+            if hasattr(example, "id") and example.id:
                 pair["id"] = example.id
             data.append(pair)
 
@@ -154,13 +154,23 @@ class PlumClient:
         else:
             response.raise_for_status()
 
-    def evaluate(self, data_id: str, metrics_id: str) -> EvaluationResponse:
+    def evaluate(
+        self, 
+        data_id: str, 
+        metrics_id: str, 
+        latest_n_pairs: Optional[int] = None,
+        pair_label: Optional[str] = None,
+        is_synthetic: bool = False
+    ) -> EvaluationResponse:
         """
         Evaluate a dataset using specified metrics.
 
         Args:
             data_id: The ID of the dataset to evaluate
             metrics_id: The ID of the metrics to use for evaluation
+            latest_n_pairs: Maximum number of latest pairs to include (defaults to 150 if not provided)
+            pair_label: Filter pairs by label (optional)
+            is_synthetic: Whether the data_id refers to synthetic data (default: False for seed data)
 
         Returns:
             EvaluationResponse object containing the evaluation results
@@ -170,12 +180,77 @@ class PlumClient:
         """
         url = f"{self.base_url}/evaluate"
 
-        payload = {"seed_data_id": data_id, "metrics_id": metrics_id}
+        if is_synthetic:
+            payload = {"synthetic_data_id": data_id, "metrics_id": metrics_id}
+        else:
+            payload = {"seed_data_id": data_id, "metrics_id": metrics_id}
+
+        # Add pair_query if any filtering parameters are provided
+        if latest_n_pairs is not None or pair_label is not None:
+            pair_query = {}
+            if latest_n_pairs is not None:
+                pair_query["latest_n_pairs"] = latest_n_pairs
+            if pair_label is not None:
+                pair_query["pair_label"] = pair_label
+            payload["pair_query"] = pair_query
 
         response = requests.post(url, json=payload, headers=self.headers)
 
         if response.status_code == 200:
             data = response.json()
             return EvaluationResponse(**data)
+        else:
+            response.raise_for_status()
+
+    def augment(
+        self,
+        seed_data_id: Optional[str] = None,
+        multiple: int = 1,
+        eval_results_id: Optional[str] = None,
+        latest_n_pairs: Optional[int] = None,
+        pair_label: Optional[str] = None,
+        target_metric: Optional[str] = None,
+    ) -> dict:
+        """
+        Augment seed data to generate synthetic data.
+
+        Args:
+            seed_data_id: ID of seed dataset to augment (will use latest if not provided)
+            multiple: Number of synthetic examples to generate per seed example (max 50)
+            eval_results_id: ID of evaluation results to use for target metric (will use latest if not provided)
+            latest_n_pairs: Maximum number of latest pairs to include (defaults to 150 if not provided)
+            pair_label: Filter pairs by label (optional)
+            target_metric: Target metric for redrafting synthetic data (will use lowest scoring metric if not provided)
+
+        Returns:
+            Dict containing augmentation results including synthetic_data_id
+
+        Raises:
+            requests.HTTPError: If the request to the Plum API fails
+        """
+        url = f"{self.base_url}/augment"
+
+        payload = {"multiple": multiple}
+
+        if seed_data_id is not None:
+            payload["seed_data_id"] = seed_data_id
+        if eval_results_id is not None:
+            payload["eval_results_id"] = eval_results_id
+        if target_metric is not None:
+            payload["target_metric"] = target_metric
+
+        # Add pair_query if any filtering parameters are provided
+        if latest_n_pairs is not None or pair_label is not None:
+            pair_query = {}
+            if latest_n_pairs is not None:
+                pair_query["latest_n_pairs"] = latest_n_pairs
+            if pair_label is not None:
+                pair_query["pair_label"] = pair_label
+            payload["pair_query"] = pair_query
+
+        response = requests.post(url, json=payload, headers=self.headers)
+
+        if response.status_code == 200:
+            return response.json()
         else:
             response.raise_for_status()

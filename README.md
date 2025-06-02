@@ -65,6 +65,71 @@ response = plum_client.upload_pair(
 print(f"Added pair with ID: {response.pair_id}")
 ```
 
+### Generating and Evaluating with Metrics
+
+```python
+# Generate evaluation metrics based on your system prompt
+metrics_response = plum_client.generate_metric_questions(system_prompt)
+print(f"Generated metrics with ID: {metrics_response.metrics_id}")
+
+# Evaluate your dataset
+evaluation_response = plum_client.evaluate(
+    data_id=response.id,  # Dataset ID from upload_data response
+    metrics_id=metrics_response.metrics_id
+)
+print(f"Evaluation completed with ID: {evaluation_response.eval_results_id}")
+```
+
+### Advanced Evaluation with Filtering
+
+You can filter which pairs to evaluate using `pair_query` parameters:
+
+```python
+# Evaluate only the latest 50 pairs
+evaluation_response = plum_client.evaluate(
+    data_id=dataset_id,
+    metrics_id=metrics_id,
+    latest_n_pairs=50
+)
+
+# Evaluate only pairs with specific labels
+evaluation_response = plum_client.evaluate(
+    data_id=dataset_id,
+    metrics_id=metrics_id,
+    pair_label="geography"
+)
+
+# Evaluate synthetic data instead of seed data
+evaluation_response = plum_client.evaluate(
+    data_id=synthetic_data_id,
+    metrics_id=metrics_id,
+    is_synthetic=True,
+    latest_n_pairs=100
+)
+```
+
+### Data Augmentation
+
+Generate synthetic training examples from your seed data:
+
+```python
+# Basic augmentation - generates 3x the original dataset size
+augment_response = plum_client.augment(
+    seed_data_id=dataset_id,
+    multiple=3
+)
+print(f"Generated synthetic data with ID: {augment_response['synthetic_data_id']}")
+
+# Advanced augmentation with filtering and target metric
+augment_response = plum_client.augment(
+    seed_data_id=dataset_id,
+    multiple=2,
+    eval_results_id=evaluation_response.eval_results_id,
+    latest_n_pairs=50,  # Only use latest 50 pairs for augmentation
+    pair_label="geography",  # Only use pairs with this label
+)
+```
+
 ### Error Handling
 
 The SDK will raise exceptions for non-200 responses:
@@ -102,8 +167,11 @@ except requests.exceptions.HTTPError as e:
 - `define_metric_questions(questions: List[str]) -> MetricsResponse`: 
   Defines custom evaluation metric questions
 
-- `evaluate(metrics_id: str, data_id: str) -> EvaluationResults`: 
+- `evaluate(data_id: str, metrics_id: str, latest_n_pairs: Optional[int] = None, pair_label: Optional[str] = None, is_synthetic: bool = False) -> EvaluationResponse`: 
   Evaluates uploaded data against defined metrics and returns detailed scoring results
+
+- `augment(seed_data_id: Optional[str] = None, multiple: int = 1, eval_results_id: Optional[str] = None, latest_n_pairs: Optional[int] = None, pair_label: Optional[str] = None, target_metric: Optional[str] = None) -> dict`:
+  Augments seed data to generate synthetic training examples
 
 ### Data Classes
 
