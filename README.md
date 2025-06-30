@@ -65,6 +65,21 @@ response = plum_client.upload_pair(
 print(f"Added pair with ID: {response.pair_id}")
 ```
 
+### Adding Examples with System Prompt (Auto-dataset Creation)
+
+If you want to add a single example but don't have an existing dataset ID, you can use `upload_pair_with_prompt`. This method will either find an existing dataset with the same system prompt or create a new one:
+
+```python
+# Add a single example with a system prompt - will auto-create or find matching dataset
+response = plum_client.upload_pair_with_prompt(
+    input_text="What is the capital of Japan?",
+    output_text="The capital of Japan is Tokyo.",
+    system_prompt_template="You are a helpful assistant that provides accurate and concise answers.",
+    labels=["geography", "capitals"]  # Optional labels
+)
+print(f"Added pair with ID: {response.pair_id} to dataset: {response.dataset_id}")
+```
+
 ### Generating and Evaluating with Metrics
 
 ```python
@@ -160,7 +175,10 @@ except requests.exceptions.HTTPError as e:
   
 - `upload_pair(dataset_id: str, input_text: str, output_text: str, pair_id: Optional[str] = None, labels: Optional[List[str]] = None) -> PairUploadResponse`:
   Adds a single input-output pair to an existing dataset
-  
+
+- `upload_pair_with_prompt(input_text: str, output_text: str, system_prompt_template: str, pair_id: Optional[str] = None, labels: Optional[List[str]] = None) -> PairUploadResponse`:
+  Adds a single input-output pair to a dataset, creating the dataset if it doesn't exist
+
 - `generate_metric_questions(system_prompt: str) -> MetricsQuestions`: 
   Automatically generates evaluation metric questions based on a system prompt
 

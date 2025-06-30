@@ -1,22 +1,9 @@
 from setuptools import setup, find_packages
-import os
-
-# Check if we have a plum_sdk directory with actual code
-if not os.path.exists("plum_sdk") and os.path.exists("__init__.py"):
-    # We're inside the package directory - use . to include the current directory
-    package_dir = {"": "."}
-    packages = [""]
-else:
-    # Regular package structure
-    packages = find_packages(include=["plum_sdk", "plum_sdk.*"])
-    package_dir = {}
 
 setup(
     name="plum_sdk",
-    version="0.2.0",
-    packages=packages,
-    package_dir=package_dir,
-    py_modules=["plum_sdk"] if not packages else [],
+    version="0.3.0",
+    packages=find_packages(),
     install_requires=["requests"],
     tests_require=["pytest"],
     python_requires=">=3.6",

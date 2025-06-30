@@ -257,23 +257,20 @@ class TestPlumClient(unittest.TestCase):
             data_id="data:0:123456",
             metrics_id="eval:metrics:0:000000",
             latest_n_pairs=50,
-            pair_label="geography"
+            pair_label="geography",
         )
 
         # Verify the request was made with correct payload
         expected_payload = {
             "seed_data_id": "data:0:123456",
             "metrics_id": "eval:metrics:0:000000",
-            "pair_query": {
-                "latest_n_pairs": 50,
-                "pair_label": "geography"
-            }
+            "pair_query": {"latest_n_pairs": 50, "pair_label": "geography"},
         }
-        
+
         mock_post.assert_called_once_with(
             f"{self.base_url}/evaluate",
             json=expected_payload,
-            headers=self.client.headers
+            headers=self.client.headers,
         )
 
     @patch("requests.post")
@@ -283,7 +280,7 @@ class TestPlumClient(unittest.TestCase):
         mock_response.json.return_value = {
             "eval_results_id": "eval:results:0:000000",
             "pair_count": 100,
-            "scores": []
+            "scores": [],
         }
         mock_response.status_code = 200
         mock_post.return_value = mock_response
@@ -293,22 +290,20 @@ class TestPlumClient(unittest.TestCase):
             data_id="synth:0:123456",
             metrics_id="eval:metrics:0:000000",
             is_synthetic=True,
-            latest_n_pairs=100
+            latest_n_pairs=100,
         )
 
         # Verify synthetic_data_id is used instead of seed_data_id
         expected_payload = {
             "synthetic_data_id": "synth:0:123456",
             "metrics_id": "eval:metrics:0:000000",
-            "pair_query": {
-                "latest_n_pairs": 100
-            }
+            "pair_query": {"latest_n_pairs": 100},
         }
-        
+
         mock_post.assert_called_once_with(
             f"{self.base_url}/evaluate",
             json=expected_payload,
-            headers=self.client.headers
+            headers=self.client.headers,
         )
 
     @patch("requests.post")
@@ -318,27 +313,26 @@ class TestPlumClient(unittest.TestCase):
         mock_response.json.return_value = {
             "eval_results_id": "eval:results:0:000000",
             "pair_count": 150,
-            "scores": []
+            "scores": [],
         }
         mock_response.status_code = 200
         mock_post.return_value = mock_response
 
         # Test without pair query parameters
         result = self.client.evaluate(
-            data_id="data:0:123456",
-            metrics_id="eval:metrics:0:000000"
+            data_id="data:0:123456", metrics_id="eval:metrics:0:000000"
         )
 
         # Verify no pair_query is included when no filtering parameters are provided
         expected_payload = {
             "seed_data_id": "data:0:123456",
-            "metrics_id": "eval:metrics:0:000000"
+            "metrics_id": "eval:metrics:0:000000",
         }
-        
+
         mock_post.assert_called_once_with(
             f"{self.base_url}/evaluate",
             json=expected_payload,
-            headers=self.client.headers
+            headers=self.client.headers,
         )
 
     @patch("requests.post")
@@ -349,29 +343,23 @@ class TestPlumClient(unittest.TestCase):
             "synthetic_data_id": "synth:0:123456",
             "created_at": "2024-01-01T00:00:00Z",
             "seed_data_size": 10,
-            "synthetic_data_size": 30
+            "synthetic_data_size": 30,
         }
         mock_response.status_code = 200
         mock_post.return_value = mock_response
 
         # Test basic augmentation
-        result = self.client.augment(
-            seed_data_id="data:0:123456",
-            multiple=3
-        )
+        result = self.client.augment(seed_data_id="data:0:123456", multiple=3)
 
         # Verify the request
-        expected_payload = {
-            "multiple": 3,
-            "seed_data_id": "data:0:123456"
-        }
-        
+        expected_payload = {"multiple": 3, "seed_data_id": "data:0:123456"}
+
         mock_post.assert_called_once_with(
             f"{self.base_url}/augment",
             json=expected_payload,
-            headers=self.client.headers
+            headers=self.client.headers,
         )
-        
+
         assert result["synthetic_data_id"] == "synth:0:123456"
 
     @patch("requests.post")
@@ -380,7 +368,7 @@ class TestPlumClient(unittest.TestCase):
         mock_response = Mock()
         mock_response.json.return_value = {
             "synthetic_data_id": "synth:0:123456",
-            "created_at": "2024-01-01T00:00:00Z"
+            "created_at": "2024-01-01T00:00:00Z",
         }
         mock_response.status_code = 200
         mock_post.return_value = mock_response
@@ -392,7 +380,7 @@ class TestPlumClient(unittest.TestCase):
             eval_results_id="eval:results:0:000000",
             latest_n_pairs=50,
             pair_label="geography",
-            target_metric="accuracy"
+            target_metric="accuracy",
         )
 
         # Verify the request includes all parameters
@@ -401,25 +389,20 @@ class TestPlumClient(unittest.TestCase):
             "seed_data_id": "data:0:123456",
             "eval_results_id": "eval:results:0:000000",
             "target_metric": "accuracy",
-            "pair_query": {
-                "latest_n_pairs": 50,
-                "pair_label": "geography"
-            }
+            "pair_query": {"latest_n_pairs": 50, "pair_label": "geography"},
         }
-        
+
         mock_post.assert_called_once_with(
             f"{self.base_url}/augment",
             json=expected_payload,
-            headers=self.client.headers
+            headers=self.client.headers,
         )
 
     @patch("requests.post")
     def test_augment_minimal_params(self, mock_post):
         # Setup
         mock_response = Mock()
-        mock_response.json.return_value = {
-            "synthetic_data_id": "synth:0:123456"
-        }
+        mock_response.json.return_value = {"synthetic_data_id": "synth:0:123456"}
         mock_response.status_code = 200
         mock_post.return_value = mock_response
 
@@ -427,14 +410,12 @@ class TestPlumClient(unittest.TestCase):
         result = self.client.augment(multiple=5)
 
         # Verify only multiple is included when other params are None
-        expected_payload = {
-            "multiple": 5
-        }
-        
+        expected_payload = {"multiple": 5}
+
         mock_post.assert_called_once_with(
             f"{self.base_url}/augment",
             json=expected_payload,
-            headers=self.client.headers
+            headers=self.client.headers,
         )
 
     @patch("requests.post")
@@ -448,5 +429,134 @@ class TestPlumClient(unittest.TestCase):
         mock_post.return_value = mock_response
 
         # Execute & Verify
-        with pytest.raises(requests.exceptions.HTTPError, match="Internal server error"):
+        with pytest.raises(
+            requests.exceptions.HTTPError, match="Internal server error"
+        ):
             self.client.augment(seed_data_id="data:0:123456", multiple=2)
+
+    @patch("requests.post")
+    def test_upload_pair_with_prompt(self, mock_post):
+        # Setup
+        test_api_key = "test-api-key"
+        test_input = "This is a test input"
+        test_output = "This is a test output"
+        test_system_prompt = "You are a helpful assistant"
+        test_pair_id = "test-pair-id"
+        test_labels = ["label1", "label2"]
+        test_dataset_id = "data:0:0000000"
+
+        expected_url = "https://beta.getplum.ai/v1/data/seed/pair"
+        expected_headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": test_api_key,
+        }
+        expected_payload = {
+            "input": test_input,
+            "output": test_output,
+            "system_prompt_template": test_system_prompt,
+            "labels": test_labels,
+            "id": test_pair_id,
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "dataset_id": test_dataset_id,
+            "pair_id": test_pair_id,
+        }
+
+        mock_post.return_value = mock_response
+
+        # Execute
+        client = PlumClient(test_api_key)
+        result = client.upload_pair_with_prompt(
+            input_text=test_input,
+            output_text=test_output,
+            system_prompt_template=test_system_prompt,
+            pair_id=test_pair_id,
+            labels=test_labels,
+        )
+
+        # Verify
+        mock_post.assert_called_once_with(
+            expected_url, headers=expected_headers, json=expected_payload
+        )
+        assert isinstance(result, PairUploadResponse)
+        assert result.dataset_id == test_dataset_id
+        assert result.pair_id == test_pair_id
+
+    @patch("requests.post")
+    def test_upload_pair_with_prompt_minimal_params(self, mock_post):
+        # Setup
+        test_api_key = "test-api-key"
+        test_input = "This is a test input"
+        test_output = "This is a test output"
+        test_system_prompt = "You are a helpful assistant"
+        test_dataset_id = "data:0:0000000"
+        auto_generated_pair_id = "auto-generated-id"
+
+        expected_url = "https://beta.getplum.ai/v1/data/seed/pair"
+        expected_headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": test_api_key,
+        }
+        expected_payload = {
+            "input": test_input,
+            "output": test_output,
+            "system_prompt_template": test_system_prompt,
+            "labels": [],
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "dataset_id": test_dataset_id,
+            "pair_id": auto_generated_pair_id,
+        }
+
+        mock_post.return_value = mock_response
+
+        # Execute
+        client = PlumClient(test_api_key)
+        result = client.upload_pair_with_prompt(
+            input_text=test_input,
+            output_text=test_output,
+            system_prompt_template=test_system_prompt,
+        )
+
+        # Verify
+        mock_post.assert_called_once_with(
+            expected_url, headers=expected_headers, json=expected_payload
+        )
+        assert isinstance(result, PairUploadResponse)
+        assert result.dataset_id == test_dataset_id
+        assert result.pair_id == auto_generated_pair_id
+
+    @patch("requests.post")
+    def test_upload_pair_with_prompt_error_handling(self, mock_post):
+        # Setup
+        test_api_key = "test-api-key"
+        test_input = "This is a test input"
+        test_output = "This is a test output"
+        test_system_prompt = "You are a helpful assistant"
+
+        mock_response = Mock()
+        mock_response.status_code = 400
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "Invalid system prompt"
+        )
+
+        mock_post.return_value = mock_response
+
+        # Execute & Verify
+        client = PlumClient(test_api_key)
+        with pytest.raises(
+            requests.exceptions.HTTPError, match="Invalid system prompt"
+        ):
+            client.upload_pair_with_prompt(
+                input_text=test_input,
+                output_text=test_output,
+                system_prompt_template=test_system_prompt,
+            )
