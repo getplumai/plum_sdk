@@ -104,6 +104,56 @@ class PlumClient:
             dataset_id=response_data["dataset_id"], pair_id=response_data["pair_id"]
         )
 
+    def upload_pair_with_prompt(
+        self,
+        input_text: str,
+        output_text: str,
+        system_prompt_template: str,
+        pair_id: Optional[str] = None,
+        labels: Optional[List[str]] = None,
+    ) -> PairUploadResponse:
+        """
+        Upload a single input-output pair with a system prompt template.
+
+        If a dataset with the same system prompt already exists, the pair will be added to that dataset.
+        If no such dataset exists, a new dataset will be created with the provided system prompt.
+
+        Args:
+            input_text: The user prompt/input text
+            output_text: The output/response text
+            system_prompt_template: The system prompt template for the dataset
+            pair_id: Optional custom ID for the pair (will be auto-generated if not provided)
+            labels: Optional list of labels to associate with this pair
+
+        Returns:
+            PairUploadResponse containing the pair_id and dataset_id (existing or newly created)
+
+        Raises:
+            requests.HTTPError: If the request fails
+        """
+        if labels is None:
+            labels = []
+
+        endpoint = f"{self.base_url}/data/seed/pair"
+
+        payload = {
+            "input": input_text,
+            "output": output_text,
+            "system_prompt_template": system_prompt_template,
+            "labels": labels,
+        }
+
+        if pair_id:
+            payload["id"] = pair_id
+
+        response = requests.post(endpoint, headers=self.headers, json=payload)
+
+        response.raise_for_status()
+        response_data = response.json()
+        return PairUploadResponse(
+            dataset_id=response_data["dataset_id"], pair_id=response_data["pair_id"]
+        )
+
     def generate_metric_questions(self, system_prompt: str) -> MetricsQuestions:
         """
         Generate evaluation metric questions based on a system prompt.
@@ -155,12 +205,13 @@ class PlumClient:
             response.raise_for_status()
 
     def evaluate(
-        self, 
-        data_id: str, 
-        metrics_id: str, 
+        self,
+        data_id: str,
+        metrics_id: str,
         latest_n_pairs: Optional[int] = None,
         pair_label: Optional[str] = None,
-        is_synthetic: bool = False
+        last_n_seconds: Optional[int] = None,
+        is_synthetic: bool = False,
     ) -> EvaluationResponse:
         """
         Evaluate a dataset using specified metrics.
@@ -170,6 +221,7 @@ class PlumClient:
             metrics_id: The ID of the metrics to use for evaluation
             latest_n_pairs: Maximum number of latest pairs to include (defaults to 150 if not provided)
             pair_label: Filter pairs by label (optional)
+            last_n_seconds: Filter pairs created in the last N seconds (optional)
             is_synthetic: Whether the data_id refers to synthetic data (default: False for seed data)
 
         Returns:
@@ -186,12 +238,14 @@ class PlumClient:
             payload = {"seed_data_id": data_id, "metrics_id": metrics_id}
 
         # Add pair_query if any filtering parameters are provided
-        if latest_n_pairs is not None or pair_label is not None:
+        if latest_n_pairs is not None or pair_label is not None or last_n_seconds is not None:
             pair_query = {}
             if latest_n_pairs is not None:
                 pair_query["latest_n_pairs"] = latest_n_pairs
             if pair_label is not None:
                 pair_query["pair_label"] = pair_label
+            if last_n_seconds is not None:
+                pair_query["last_n_seconds"] = last_n_seconds
             payload["pair_query"] = pair_query
 
         response = requests.post(url, json=payload, headers=self.headers)
