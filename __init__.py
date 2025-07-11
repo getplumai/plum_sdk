@@ -8,6 +8,12 @@ from plum_sdk.models import (
     MetricScore,
     EvaluationResponse,
     PairUploadResponse,
+    IOPair,
+    IOPairMeta,
+    Dataset,
+    MetricsListResponse,
+    DetailedMetricsResponse,
+    MetricDefinition,
 )
 from plum_sdk.plum_sdk import PlumClient
 
@@ -22,4 +28,10 @@ __all__ = [
     "MetricScore",
     "EvaluationResponse",
     "PairUploadResponse",
+    "IOPair",
+    "IOPairMeta",
+    "Dataset",
+    "MetricsListResponse",
+    "DetailedMetricsResponse",
+    "MetricDefinition",
 ]

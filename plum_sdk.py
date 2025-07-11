@@ -7,6 +7,12 @@ from .models import (
     MetricsResponse,
     EvaluationResponse,
     PairUploadResponse,
+    IOPair,
+    IOPairMeta,
+    Dataset,
+    MetricsListResponse,
+    DetailedMetricsResponse,
+    MetricDefinition,
 )
 
 
@@ -155,9 +161,9 @@ class PlumClient:
             response.raise_for_status()
 
     def evaluate(
-        self, 
-        data_id: str, 
-        metrics_id: str, 
+        self,
+        data_id: str,
+        metrics_id: str,
         latest_n_pairs: Optional[int] = None,
         pair_label: Optional[str] = None,
         is_synthetic: bool = False
@@ -186,7 +192,11 @@ class PlumClient:
             payload = {"seed_data_id": data_id, "metrics_id": metrics_id}
 
         # Add pair_query if any filtering parameters are provided
-        if latest_n_pairs is not None or pair_label is not None:
+        if (
+            latest_n_pairs is not None
+            or pair_label is not None
+            or last_n_seconds is not None
+        ):
             pair_query = {}
             if latest_n_pairs is not None:
                 pair_query["latest_n_pairs"] = latest_n_pairs
@@ -252,5 +262,202 @@ class PlumClient:
 
         if response.status_code == 200:
             return response.json()
+        else:
+            response.raise_for_status()
+
+    def get_dataset(self, dataset_id: str, is_synthetic: bool = False) -> Dataset:
+        """
+        Get a dataset by ID.
+
+        Args:
+            dataset_id: The ID of the dataset to retrieve
+            is_synthetic: Whether the dataset is synthetic data (default: False for seed data)
+
+        Returns:
+            Dataset object containing the dataset information and all pairs
+
+        Raises:
+            requests.HTTPError: If the request fails
+        """
+        if is_synthetic:
+            endpoint = f"{self.base_url}/data/synthetic/{dataset_id}"
+        else:
+            endpoint = f"{self.base_url}/data/seed/{dataset_id}"
+
+        response = requests.get(endpoint, headers=self.headers)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # Convert the response data to our model format
+        pairs = []
+        for pair_data in data.get("data", []):
+            metadata = None
+            if "metadata" in pair_data:
+                metadata = IOPairMeta(
+                    created_at=pair_data["metadata"].get("created_at"),
+                    labels=pair_data["metadata"].get("labels", []),
+                )
+
+            pairs.append(
+                IOPair(
+                    id=pair_data["id"],
+                    input=pair_data["input"],
+                    output=pair_data["output"],
+                    metadata=metadata,
+                    input_media=pair_data.get("input_media"),
+                    use_media_mime_type=pair_data.get("use_media_mime_type"),
+                    human_critique=pair_data.get("human_critique"),
+                    target_metric=pair_data.get("target_metric"),
+                )
+            )
+
+        return Dataset(
+            id=data["id"],
+            data=pairs,
+            system_prompt=data.get("system_prompt"),
+            created_at=data.get("created_at"),
+        )
+
+    def get_pair(
+        self, dataset_id: str, pair_id: str, is_synthetic: bool = False
+    ) -> IOPair:
+        """
+        Get a specific pair from a dataset.
+
+        Args:
+            dataset_id: The ID of the dataset containing the pair
+            pair_id: The ID of the specific pair to retrieve
+            is_synthetic: Whether the dataset is synthetic data (default: False for seed data)
+
+        Returns:
+            IOPair object containing the pair information
+
+        Raises:
+            requests.HTTPError: If the request fails
+            ValueError: If the pair is not found in the dataset
+        """
+        dataset = self.get_dataset(dataset_id, is_synthetic)
+
+        # Find the specific pair by ID
+        for pair in dataset.data:
+            if pair.id == pair_id:
+                return pair
+
+        raise ValueError(
+            f"Pair with ID '{pair_id}' not found in dataset '{dataset_id}'"
+        )
+
+    def list_metrics(self) -> MetricsListResponse:
+        """
+        List all available evaluation metrics.
+
+        Returns:
+            MetricsListResponse object containing all available metrics with their definitions
+
+        Raises:
+            requests.HTTPError: If the request to the Plum API fails
+        """
+        url = f"{self.base_url}/list_questions"
+
+        response = requests.get(url, headers=self.headers)
+
+        if response.status_code == 200:
+            data = response.json()
+
+            # Convert the response to our model format
+            metrics_dict = {}
+            for metric_id, metric_data in data.get("metrics", {}).items():
+                # Convert definitions list to MetricDefinition objects
+                definitions = []
+                for i, definition in enumerate(metric_data.get("definitions", [])):
+                    # Handle different formats of definition data
+                    if isinstance(definition, dict):
+                        definitions.append(
+                            MetricDefinition(
+                                id=definition.get("id", f"metric_{i}"),
+                                name=definition.get("name", f"Metric {i+1}"),
+                                description=definition.get(
+                                    "description",
+                                    definition.get("text", str(definition)),
+                                ),
+                            )
+                        )
+                    else:
+                        # If it's a string, use it as the description
+                        definitions.append(
+                            MetricDefinition(
+                                id=f"metric_{i}",
+                                name=f"Metric {i+1}",
+                                description=str(definition),
+                            )
+                        )
+
+                metrics_dict[metric_id] = DetailedMetricsResponse(
+                    metrics_id=metric_data.get("metrics_id", metric_id),
+                    definitions=definitions,
+                    system_prompt=metric_data.get("system_prompt"),
+                    metric_count=metric_data.get("metric_count", len(definitions)),
+                    created_at=metric_data.get("created_at"),
+                )
+
+            return MetricsListResponse(
+                metrics=metrics_dict,
+                total_count=data.get("total_count", len(metrics_dict)),
+            )
+        else:
+            response.raise_for_status()
+
+    def get_metric(self, metrics_id: str) -> DetailedMetricsResponse:
+        """
+        Get a specific metric definition by ID.
+
+        Args:
+            metrics_id: The ID of the metric to retrieve
+
+        Returns:
+            DetailedMetricsResponse object containing the metric definition and all its questions
+
+        Raises:
+            requests.HTTPError: If the request to the Plum API fails
+        """
+        url = f"{self.base_url}/question/{metrics_id}"
+
+        response = requests.get(url, headers=self.headers)
+
+        if response.status_code == 200:
+            data = response.json()
+
+            # Convert definitions list to MetricDefinition objects
+            definitions = []
+            for i, definition in enumerate(data.get("definitions", [])):
+                # Handle different formats of definition data
+                if isinstance(definition, dict):
+                    definitions.append(
+                        MetricDefinition(
+                            id=definition.get("id", f"metric_{i}"),
+                            name=definition.get("name", f"Metric {i+1}"),
+                            description=definition.get(
+                                "description", definition.get("text", str(definition))
+                            ),
+                        )
+                    )
+                else:
+                    # If it's a string, use it as the description
+                    definitions.append(
+                        MetricDefinition(
+                            id=f"metric_{i}",
+                            name=f"Metric {i+1}",
+                            description=str(definition),
+                        )
+                    )
+
+            return DetailedMetricsResponse(
+                metrics_id=data.get("metrics_id", metrics_id),
+                definitions=definitions,
+                system_prompt=data.get("system_prompt"),
+                metric_count=data.get("num_metrics", len(definitions)),
+                created_at=data.get("created_at"),
+            )
         else:
             response.raise_for_status()
