@@ -1,11 +1,14 @@
 import requests
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Type, get_type_hints
+from dataclasses import fields, is_dataclass
 from .models import (
     TrainingExample,
     UploadResponse,
     MetricsQuestions,
     MetricsResponse,
     EvaluationResponse,
+    MetricScore,
+    ScoringPair,
     PairUploadResponse,
     IOPair,
     IOPairMeta,
@@ -32,6 +35,41 @@ class PlumClient:
             "Accept": "application/json",
             "Authorization": f"{self.api_key}",
         }
+
+    def _filter_response_for_dataclass(self, response_data: Dict[str, Any], target_class: Type) -> Dict[str, Any]:
+        """
+        Filter API response data to only include fields that exist in the target dataclass.
+        
+        Args:
+            response_data: Raw response data from API
+            target_class: Target dataclass to filter fields for
+            
+        Returns:
+            Filtered dictionary containing only fields that match the dataclass
+        """
+        if not is_dataclass(target_class):
+            return response_data
+            
+        # Get all field names from the dataclass
+        dataclass_fields = {field.name for field in fields(target_class)}
+        
+        # Filter the response to only include fields that exist in the dataclass
+        filtered_data = {k: v for k, v in response_data.items() if k in dataclass_fields}
+        
+        return filtered_data
+
+    def _filter_nested_objects(self, data_list: List[Dict[str, Any]], target_class: Type) -> List[Dict[str, Any]]:
+        """
+        Filter a list of nested objects to only include fields that exist in the target dataclass.
+        
+        Args:
+            data_list: List of dictionaries to filter
+            target_class: Target dataclass to filter fields for
+            
+        Returns:
+            List of filtered dictionaries
+        """
+        return [self._filter_response_for_dataclass(item, target_class) for item in data_list]
 
     def upload_data(
         self, training_examples: List[TrainingExample], system_prompt: str
@@ -64,7 +102,8 @@ class PlumClient:
 
         if response.status_code == 200:
             data = response.json()
-            return UploadResponse(**data)
+            filtered_data = self._filter_response_for_dataclass(data, UploadResponse)
+            return UploadResponse(**filtered_data)
         else:
             response.raise_for_status()
 
@@ -106,9 +145,57 @@ class PlumClient:
 
         response.raise_for_status()
         response_data = response.json()
-        return PairUploadResponse(
-            dataset_id=response_data["dataset_id"], pair_id=response_data["pair_id"]
-        )
+        filtered_data = self._filter_response_for_dataclass(response_data, PairUploadResponse)
+        return PairUploadResponse(**filtered_data)
+
+    def upload_pair_with_prompt(
+        self,
+        input_text: str,
+        output_text: str,
+        system_prompt_template: str,
+        pair_id: Optional[str] = None,
+        labels: Optional[List[str]] = None,
+    ) -> PairUploadResponse:
+        """
+        Upload a single input-output pair with a system prompt template.
+
+        If a dataset with the same system prompt already exists, the pair will be added to that dataset.
+        If no such dataset exists, a new dataset will be created with the provided system prompt.
+
+        Args:
+            input_text: The user prompt/input text
+            output_text: The output/response text
+            system_prompt_template: The system prompt template for the dataset
+            pair_id: Optional custom ID for the pair (will be auto-generated if not provided)
+            labels: Optional list of labels to associate with this pair
+
+        Returns:
+            PairUploadResponse containing the pair_id and dataset_id (existing or newly created)
+
+        Raises:
+            requests.HTTPError: If the request fails
+        """
+        if labels is None:
+            labels = []
+
+        endpoint = f"{self.base_url}/data/seed/pair"
+
+        payload = {
+            "input": input_text,
+            "output": output_text,
+            "system_prompt_template": system_prompt_template,
+            "labels": labels,
+        }
+
+        if pair_id:
+            payload["id"] = pair_id
+
+        response = requests.post(endpoint, headers=self.headers, json=payload)
+
+        response.raise_for_status()
+        response_data = response.json()
+        filtered_data = self._filter_response_for_dataclass(response_data, PairUploadResponse)
+        return PairUploadResponse(**filtered_data)
 
     def generate_metric_questions(self, system_prompt: str) -> MetricsQuestions:
         """
@@ -131,7 +218,8 @@ class PlumClient:
 
         if response.status_code == 200:
             data = response.json()
-            return MetricsQuestions(**data)
+            filtered_data = self._filter_response_for_dataclass(data, MetricsQuestions)
+            return MetricsQuestions(**filtered_data)
         else:
             response.raise_for_status()
 
@@ -156,7 +244,8 @@ class PlumClient:
 
         if response.status_code == 200:
             data = response.json()
-            return MetricsResponse(**data)
+            filtered_data = self._filter_response_for_dataclass(data, MetricsResponse)
+            return MetricsResponse(**filtered_data)
         else:
             response.raise_for_status()
 
@@ -165,8 +254,9 @@ class PlumClient:
         data_id: str,
         metrics_id: str,
         latest_n_pairs: Optional[int] = None,
-        pair_label: Optional[str] = None,
-        is_synthetic: bool = False
+        pair_labels: Optional[List[str]] = None,
+        last_n_seconds: Optional[int] = None,
+        is_synthetic: bool = False,
     ) -> EvaluationResponse:
         """
         Evaluate a dataset using specified metrics.
@@ -175,7 +265,8 @@ class PlumClient:
             data_id: The ID of the dataset to evaluate
             metrics_id: The ID of the metrics to use for evaluation
             latest_n_pairs: Maximum number of latest pairs to include (defaults to 150 if not provided)
-            pair_label: Filter pairs by label (optional)
+            pair_labels: Filter pairs by labels (optional list of strings)
+            last_n_seconds: Filter pairs created in the last N seconds (optional)
             is_synthetic: Whether the data_id refers to synthetic data (default: False for seed data)
 
         Returns:
@@ -194,21 +285,45 @@ class PlumClient:
         # Add pair_query if any filtering parameters are provided
         if (
             latest_n_pairs is not None
-            or pair_label is not None
+            or pair_labels is not None
             or last_n_seconds is not None
         ):
             pair_query = {}
             if latest_n_pairs is not None:
                 pair_query["latest_n_pairs"] = latest_n_pairs
-            if pair_label is not None:
-                pair_query["pair_label"] = pair_label
+            if pair_labels is not None:
+                pair_query["pair_labels"] = pair_labels
+            if last_n_seconds is not None:
+                pair_query["last_n_seconds"] = last_n_seconds
             payload["pair_query"] = pair_query
 
         response = requests.post(url, json=payload, headers=self.headers)
 
         if response.status_code == 200:
             data = response.json()
-            return EvaluationResponse(**data)
+
+            # Convert scores data to MetricScore objects if present
+            if "scores" in data and data["scores"]:
+                scores = []
+                for score_data in data["scores"]:
+                    # Filter score_data for MetricScore fields
+                    filtered_score_data = self._filter_response_for_dataclass(score_data, MetricScore)
+                    
+                    # Convert lowest_scoring_pairs to ScoringPair objects
+                    scoring_pairs = []
+                    if "lowest_scoring_pairs" in score_data:
+                        for pair_data in score_data["lowest_scoring_pairs"]:
+                            filtered_pair_data = self._filter_response_for_dataclass(pair_data, ScoringPair)
+                            scoring_pairs.append(ScoringPair(**filtered_pair_data))
+
+                    # Create MetricScore with ScoringPair objects
+                    filtered_score_data["lowest_scoring_pairs"] = scoring_pairs
+                    scores.append(MetricScore(**filtered_score_data))
+
+                data["scores"] = scores
+
+            filtered_data = self._filter_response_for_dataclass(data, EvaluationResponse)
+            return EvaluationResponse(**filtered_data)
         else:
             response.raise_for_status()
 
@@ -218,7 +333,7 @@ class PlumClient:
         multiple: int = 1,
         eval_results_id: Optional[str] = None,
         latest_n_pairs: Optional[int] = None,
-        pair_label: Optional[str] = None,
+        pair_labels: Optional[List[str]] = None,
         target_metric: Optional[str] = None,
     ) -> dict:
         """
@@ -229,7 +344,7 @@ class PlumClient:
             multiple: Number of synthetic examples to generate per seed example (max 50)
             eval_results_id: ID of evaluation results to use for target metric (will use latest if not provided)
             latest_n_pairs: Maximum number of latest pairs to include (defaults to 150 if not provided)
-            pair_label: Filter pairs by label (optional)
+            pair_labels: Filter pairs by labels (optional list of strings)
             target_metric: Target metric for redrafting synthetic data (will use lowest scoring metric if not provided)
 
         Returns:
@@ -250,12 +365,12 @@ class PlumClient:
             payload["target_metric"] = target_metric
 
         # Add pair_query if any filtering parameters are provided
-        if latest_n_pairs is not None or pair_label is not None:
+        if latest_n_pairs is not None or pair_labels is not None:
             pair_query = {}
             if latest_n_pairs is not None:
                 pair_query["latest_n_pairs"] = latest_n_pairs
-            if pair_label is not None:
-                pair_query["pair_label"] = pair_label
+            if pair_labels is not None:
+                pair_query["pair_labels"] = pair_labels
             payload["pair_query"] = pair_query
 
         response = requests.post(url, json=payload, headers=self.headers)
@@ -292,32 +407,26 @@ class PlumClient:
         # Convert the response data to our model format
         pairs = []
         for pair_data in data.get("data", []):
+            # Filter pair data for IOPair fields
+            filtered_pair_data = self._filter_response_for_dataclass(pair_data, IOPair)
+            
             metadata = None
             if "metadata" in pair_data:
-                metadata = IOPairMeta(
-                    created_at=pair_data["metadata"].get("created_at"),
-                    labels=pair_data["metadata"].get("labels", []),
-                )
+                # Filter metadata for IOPairMeta fields
+                filtered_metadata = self._filter_response_for_dataclass(pair_data["metadata"], IOPairMeta)
+                metadata = IOPairMeta(**filtered_metadata)
 
-            pairs.append(
-                IOPair(
-                    id=pair_data["id"],
-                    input=pair_data["input"],
-                    output=pair_data["output"],
-                    metadata=metadata,
-                    input_media=pair_data.get("input_media"),
-                    use_media_mime_type=pair_data.get("use_media_mime_type"),
-                    human_critique=pair_data.get("human_critique"),
-                    target_metric=pair_data.get("target_metric"),
-                )
-            )
+            # Remove metadata from filtered_pair_data if it exists, since we handle it separately
+            filtered_pair_data.pop("metadata", None)
+            filtered_pair_data["metadata"] = metadata
+            
+            pairs.append(IOPair(**filtered_pair_data))
 
-        return Dataset(
-            id=data["id"],
-            data=pairs,
-            system_prompt=data.get("system_prompt"),
-            created_at=data.get("created_at"),
-        )
+        # Filter top-level data for Dataset fields
+        filtered_data = self._filter_response_for_dataclass(data, Dataset)
+        filtered_data["data"] = pairs
+        
+        return Dataset(**filtered_data)
 
     def get_pair(
         self, dataset_id: str, pair_id: str, is_synthetic: bool = False
@@ -368,21 +477,23 @@ class PlumClient:
             # Convert the response to our model format
             metrics_dict = {}
             for metric_id, metric_data in data.get("metrics", {}).items():
+                # Filter metric_data for DetailedMetricsResponse fields
+                filtered_metric_data = self._filter_response_for_dataclass(metric_data, DetailedMetricsResponse)
+                
                 # Convert definitions list to MetricDefinition objects
                 definitions = []
                 for i, definition in enumerate(metric_data.get("definitions", [])):
                     # Handle different formats of definition data
                     if isinstance(definition, dict):
-                        definitions.append(
-                            MetricDefinition(
-                                id=definition.get("id", f"metric_{i}"),
-                                name=definition.get("name", f"Metric {i+1}"),
-                                description=definition.get(
-                                    "description",
-                                    definition.get("text", str(definition)),
-                                ),
-                            )
-                        )
+                        filtered_definition = self._filter_response_for_dataclass(definition, MetricDefinition)
+                        # Provide defaults for missing required fields
+                        if "id" not in filtered_definition:
+                            filtered_definition["id"] = f"metric_{i}"
+                        if "name" not in filtered_definition:
+                            filtered_definition["name"] = f"Metric {i+1}"
+                        if "description" not in filtered_definition:
+                            filtered_definition["description"] = definition.get("text", str(definition))
+                        definitions.append(MetricDefinition(**filtered_definition))
                     else:
                         # If it's a string, use it as the description
                         definitions.append(
@@ -393,18 +504,22 @@ class PlumClient:
                             )
                         )
 
-                metrics_dict[metric_id] = DetailedMetricsResponse(
-                    metrics_id=metric_data.get("metrics_id", metric_id),
-                    definitions=definitions,
-                    system_prompt=metric_data.get("system_prompt"),
-                    metric_count=metric_data.get("metric_count", len(definitions)),
-                    created_at=metric_data.get("created_at"),
-                )
+                # Override with processed definitions and ensure required fields
+                filtered_metric_data["definitions"] = definitions
+                if "metrics_id" not in filtered_metric_data:
+                    filtered_metric_data["metrics_id"] = metric_id
+                if "metric_count" not in filtered_metric_data:
+                    filtered_metric_data["metric_count"] = len(definitions)
+                    
+                metrics_dict[metric_id] = DetailedMetricsResponse(**filtered_metric_data)
 
-            return MetricsListResponse(
-                metrics=metrics_dict,
-                total_count=data.get("total_count", len(metrics_dict)),
-            )
+            # Filter top-level response for MetricsListResponse fields
+            filtered_response = self._filter_response_for_dataclass(data, MetricsListResponse)
+            filtered_response["metrics"] = metrics_dict
+            if "total_count" not in filtered_response:
+                filtered_response["total_count"] = len(metrics_dict)
+                
+            return MetricsListResponse(**filtered_response)
         else:
             response.raise_for_status()
 
@@ -433,15 +548,15 @@ class PlumClient:
             for i, definition in enumerate(data.get("definitions", [])):
                 # Handle different formats of definition data
                 if isinstance(definition, dict):
-                    definitions.append(
-                        MetricDefinition(
-                            id=definition.get("id", f"metric_{i}"),
-                            name=definition.get("name", f"Metric {i+1}"),
-                            description=definition.get(
-                                "description", definition.get("text", str(definition))
-                            ),
-                        )
-                    )
+                    filtered_definition = self._filter_response_for_dataclass(definition, MetricDefinition)
+                    # Provide defaults for missing required fields
+                    if "id" not in filtered_definition:
+                        filtered_definition["id"] = f"metric_{i}"
+                    if "name" not in filtered_definition:
+                        filtered_definition["name"] = f"Metric {i+1}"
+                    if "description" not in filtered_definition:
+                        filtered_definition["description"] = definition.get("text", str(definition))
+                    definitions.append(MetricDefinition(**filtered_definition))
                 else:
                     # If it's a string, use it as the description
                     definitions.append(
@@ -452,12 +567,14 @@ class PlumClient:
                         )
                     )
 
-            return DetailedMetricsResponse(
-                metrics_id=data.get("metrics_id", metrics_id),
-                definitions=definitions,
-                system_prompt=data.get("system_prompt"),
-                metric_count=data.get("num_metrics", len(definitions)),
-                created_at=data.get("created_at"),
-            )
+            # Filter data for DetailedMetricsResponse fields
+            filtered_data = self._filter_response_for_dataclass(data, DetailedMetricsResponse)
+            filtered_data["definitions"] = definitions
+            if "metrics_id" not in filtered_data:
+                filtered_data["metrics_id"] = metrics_id
+            if "metric_count" not in filtered_data:
+                filtered_data["metric_count"] = data.get("num_metrics", len(definitions))
+                
+            return DetailedMetricsResponse(**filtered_data)
         else:
             response.raise_for_status()

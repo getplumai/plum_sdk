@@ -111,7 +111,7 @@ evaluation_response = plum_client.evaluate(
 evaluation_response = plum_client.evaluate(
     data_id=dataset_id,
     metrics_id=metrics_id,
-    pair_label="geography"
+    pair_labels=["geography"]
 )
 
 # Evaluate only pairs created in the last hour (3600 seconds)
@@ -126,7 +126,7 @@ evaluation_response = plum_client.evaluate(
     data_id=dataset_id,
     metrics_id=metrics_id,
     latest_n_pairs=50,
-    pair_label="geography",
+    pair_labels=["geography", "capitals"], # Only pairs tagged with both "geography" AND "capitals" labels
     last_n_seconds=1800  # Last 30 minutes
 )
 
@@ -157,7 +157,7 @@ augment_response = plum_client.augment(
     multiple=2,
     eval_results_id=evaluation_response.eval_results_id,
     latest_n_pairs=50,  # Only use latest 50 pairs for augmentation
-    pair_label="geography",  # Only use pairs with this label
+    pair_labels=["geography"],  # Only use pairs with these labels
 )
 ```
 
@@ -267,10 +267,10 @@ for definition in metric_details.definitions:
 - `define_metric_questions(questions: List[str]) -> MetricsResponse`: 
   Defines custom evaluation metric questions
 
-- `evaluate(data_id: str, metrics_id: str, latest_n_pairs: Optional[int] = None, pair_label: Optional[str] = None, is_synthetic: bool = False) -> EvaluationResponse`: 
+- `evaluate(data_id: str, metrics_id: str, latest_n_pairs: Optional[int] = None, pair_labels: Optional[List[str]] = None, is_synthetic: bool = False) -> EvaluationResponse`: 
   Evaluates uploaded data against defined metrics and returns detailed scoring results
 
-- `augment(seed_data_id: Optional[str] = None, multiple: int = 1, eval_results_id: Optional[str] = None, latest_n_pairs: Optional[int] = None, pair_label: Optional[str] = None, target_metric: Optional[str] = None) -> dict`:
+- `augment(seed_data_id: Optional[str] = None, multiple: int = 1, eval_results_id: Optional[str] = None, latest_n_pairs: Optional[int] = None, pair_labels: Optional[List[str]] = None, target_metric: Optional[str] = None) -> dict`:
   Augments seed data to generate synthetic training examples
 
 - `get_dataset(dataset_id: str, is_synthetic: bool = False) -> Dataset`:

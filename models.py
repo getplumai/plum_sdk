@@ -61,6 +61,8 @@ class EvaluationResponse:
     eval_results_id: str
     scores: List[MetricScore]
     pair_count: int
+    dataset_id: Optional[str] = None
+    created_at: Optional[str] = None
 
 
 @dataclass
