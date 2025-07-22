@@ -24,6 +24,9 @@ from plum_sdk import PlumClient, TrainingExample
 api_key = "YOUR_API_KEY"
 plum_client = PlumClient(api_key)
 
+# Or initialize with a custom base URL
+# plum_client = PlumClient(api_key, base_url="https://custom.api.url/v1")
+
 # Create training examples
 training_examples = [
     TrainingExample(
@@ -46,7 +49,7 @@ system_prompt = "You are a helpful assistant that provides accurate and concise 
 
 # Upload the data
 response = plum_client.upload_data(training_examples, system_prompt)
-print(response)
+print(f"Dataset uploaded with ID: {response.id}")
 ```
 
 ### Adding Individual Examples to an Existing Dataset
@@ -111,7 +114,7 @@ evaluation_response = plum_client.evaluate(
 evaluation_response = plum_client.evaluate(
     data_id=dataset_id,
     metrics_id=metrics_id,
-    pair_label="geography"
+    pair_labels=["geography"]
 )
 
 # Evaluate only pairs created in the last hour (3600 seconds)
@@ -126,7 +129,7 @@ evaluation_response = plum_client.evaluate(
     data_id=dataset_id,
     metrics_id=metrics_id,
     latest_n_pairs=50,
-    pair_label="geography",
+    pair_labels=["geography", "capitals"], # Only pairs tagged with both "geography" AND "capitals" labels
     last_n_seconds=1800  # Last 30 minutes
 )
 
@@ -157,7 +160,8 @@ augment_response = plum_client.augment(
     multiple=2,
     eval_results_id=evaluation_response.eval_results_id,
     latest_n_pairs=50,  # Only use latest 50 pairs for augmentation
-    pair_label="geography",  # Only use pairs with this label
+    pair_labels=["geography"],  # Only use pairs with these labels
+    target_metric="accuracy"  # Target specific metric for redrafting
 )
 ```
 
@@ -249,7 +253,7 @@ for definition in metric_details.definitions:
 
 #### Constructor
 - `api_key` (str): Your Plum API key
-- `base_url` (str, optional): Custom base URL for the Plum API
+- `base_url` (str, optional): Custom base URL for the Plum API (defaults to "https://beta.getplum.ai/v1")
 
 #### Methods
 - `upload_data(training_examples: List[TrainingExample], system_prompt: str) -> UploadResponse`: 
@@ -267,10 +271,10 @@ for definition in metric_details.definitions:
 - `define_metric_questions(questions: List[str]) -> MetricsResponse`: 
   Defines custom evaluation metric questions
 
-- `evaluate(data_id: str, metrics_id: str, latest_n_pairs: Optional[int] = None, pair_label: Optional[str] = None, is_synthetic: bool = False) -> EvaluationResponse`: 
+- `evaluate(data_id: str, metrics_id: str, latest_n_pairs: Optional[int] = None, pair_labels: Optional[List[str]] = None, last_n_seconds: Optional[int] = None, is_synthetic: bool = False) -> EvaluationResponse`: 
   Evaluates uploaded data against defined metrics and returns detailed scoring results
 
-- `augment(seed_data_id: Optional[str] = None, multiple: int = 1, eval_results_id: Optional[str] = None, latest_n_pairs: Optional[int] = None, pair_label: Optional[str] = None, target_metric: Optional[str] = None) -> dict`:
+- `augment(seed_data_id: Optional[str] = None, multiple: int = 1, eval_results_id: Optional[str] = None, latest_n_pairs: Optional[int] = None, pair_labels: Optional[List[str]] = None, target_metric: Optional[str] = None) -> dict`:
   Augments seed data to generate synthetic training examples
 
 - `get_dataset(dataset_id: str, is_synthetic: bool = False) -> Dataset`:
@@ -285,18 +289,6 @@ for definition in metric_details.definitions:
 - `get_metric(metrics_id: str) -> DetailedMetricsResponse`:
   Retrieves detailed information about a specific metric by ID
 
-- `get_dataset(dataset_id: str, is_synthetic: bool = False) -> DatasetResponse`:
-  Retrieves a dataset and all its pairs
-
-- `get_pair(dataset_id: str, pair_id: str) -> TrainingExample`:
-  Retrieves a specific pair from a dataset
-
-- `list_metrics() -> MetricsListResponse`:
-  Lists all available evaluation metrics
-
-- `get_metric(metrics_id: str) -> MetricDetails`:
-  Retrieves detailed information about a specific metric
-
 ### Data Classes
 
 #### TrainingExample
@@ -304,6 +296,10 @@ A dataclass representing a single training example:
 - `input` (str): The input text
 - `output` (str): The output text produced by your LLM
 - `id` (Optional[str]): Optional custom identifier for the example
+
+#### UploadResponse
+Response from uploading training data:
+- `id` (str): Unique identifier for the created dataset
 
 #### PairUploadResponse
 Response from uploading a pair to a dataset:
@@ -319,10 +315,31 @@ Contains generated evaluation metrics:
 Response from defining custom metrics:
 - `metrics_id` (str): Unique identifier for the defined metrics
 
-#### EvaluationResults
+#### EvaluationResponse
 Contains evaluation results:
 - `eval_results_id` (str): Unique identifier for the evaluation results
-- `scores` (List[Dict]): Detailed scoring information including mean, median, standard deviation, and confidence intervals
+- `scores` (List[MetricScore]): Detailed scoring information for each metric
+- `pair_count` (int): Number of pairs that were evaluated
+- `dataset_id` (Optional[str]): ID of the dataset that was evaluated
+- `created_at` (Optional[str]): Timestamp when the evaluation was created
+
+#### MetricScore
+Contains detailed scoring information for a single metric:
+- `metric` (str): Name of the metric
+- `mean_score` (float): Average score across all evaluated pairs
+- `std_dev` (float): Standard deviation of scores
+- `ci_low` (float): Lower bound of confidence interval
+- `ci_high` (float): Upper bound of confidence interval
+- `ci_confidence` (float): Confidence level (e.g., 0.95 for 95%)
+- `median_score` (float): Median score across all evaluated pairs
+- `min_score` (float): Minimum score observed
+- `max_score` (float): Maximum score observed
+- `lowest_scoring_pairs` (List[ScoringPair]): Pairs that received the lowest scores
+
+#### ScoringPair
+Contains information about a specific scoring result:
+- `pair_id` (str): Unique identifier for the pair
+- `score_reason` (str): Explanation of why the pair received its score
 
 #### Dataset
 Contains a complete dataset with all its pairs:
@@ -365,28 +382,4 @@ Individual metric question definition:
 - `id` (str): Unique identifier for the metric question
 - `name` (str): Display name of the metric question
 - `description` (str): Detailed description of what the metric evaluates
-
-#### DatasetResponse
-Response from retrieving a dataset:
-- `id` (str): Unique identifier for the dataset
-- `system_prompt` (str): The system prompt associated with the dataset
-- `data` (List[TrainingExample]): List of training examples in the dataset
-
-#### MetricsListResponse
-Response from listing metrics:
-- `total_count` (int): Total number of metrics available
-- `metrics` (Dict[str, MetricDetails]): Dictionary of metrics with their IDs as keys
-
-#### MetricDetails
-Detailed information about a specific metric:
-- `metrics_id` (str): Unique identifier for the metrics
-- `metric_count` (int): Number of questions in the metric
-- `system_prompt` (Optional[str]): Associated system prompt, if any
-- `definitions` (List[MetricDefinition]): List of metric questions and their details
-
-#### MetricDefinition
-Represents a single metric question:
-- `id` (str): Unique identifier for the question
-- `name` (str): Name of the question
-- `description` (str): Detailed description of the question
 
