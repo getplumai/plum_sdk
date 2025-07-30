@@ -3,7 +3,7 @@ from plum_sdk.models import (
     IOPair,
     IOPairMeta,
     Dataset,
-    TrainingExample,
+    IOPair,
     UploadResponse,
     MetricDefinition,
     DetailedMetricsResponse,

@@ -1,10 +1,10 @@
 import unittest
 from unittest.mock import Mock, patch
 import requests
-from plum_sdk import PlumClient, TrainingExample
+from plum_sdk import PlumClient, IOPair
 from plum_sdk.models import (
     PairUploadResponse,
-    TrainingExample,
+    IOPair,
     UploadResponse,
     MetricsQuestions,
     MetricsResponse,
@@ -32,8 +32,8 @@ class TestPlumClient(unittest.TestCase):
         mock_post.return_value = mock_response
 
         examples = [
-            TrainingExample(input="test input 1", output="test output 1"),
-            TrainingExample(input="test input 2", output="test output 2"),
+            IOPair(input="test input 1", output="test output 1"),
+            IOPair(input="test input 2", output="test output 2"),
         ]
         system_prompt = "test system prompt"
 
@@ -49,11 +49,76 @@ class TestPlumClient(unittest.TestCase):
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError
         mock_post.return_value = mock_response
 
-        examples = [TrainingExample(input="test", output="test")]
+        examples = [IOPair(input="test", output="test")]
         system_prompt = "test"
 
         with self.assertRaises(requests.exceptions.HTTPError):
             self.client.upload_data(examples, system_prompt)
+
+    @patch("requests.put")
+    def test_upload_data_with_dataset_id_success(self, mock_put):
+        """Test that upload_data with dataset_id uses PUT method"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "data:0:0000000"}
+        mock_put.return_value = mock_response
+
+        examples = [
+            IOPair(input="updated input 1", output="updated output 1"),
+            IOPair(input="updated input 2", output="updated output 2"),
+        ]
+        system_prompt = "updated system prompt"
+        dataset_id = "data:0:0000000"
+
+        result = self.client.upload_data(examples, system_prompt, dataset_id=dataset_id)
+
+        # Verify PUT was called once with correct URL
+        mock_put.assert_called_once()
+        call_args = mock_put.call_args
+        self.assertIn(f"/data/seed/{dataset_id}", call_args[1]['url'] if 'url' in call_args[1] else str(call_args))
+        
+        # Verify the result
+        self.assertEqual(result, UploadResponse(id="data:0:0000000"))
+
+    @patch("requests.put")
+    def test_upload_data_with_dataset_id_failure(self, mock_put):
+        """Test that upload_data with dataset_id handles PUT failures"""
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError
+        mock_put.return_value = mock_response
+
+        examples = [IOPair(input="test", output="test")]
+        system_prompt = "test"
+        dataset_id = "nonexistent:dataset:id"
+
+        with self.assertRaises(requests.exceptions.HTTPError):
+            self.client.upload_data(examples, system_prompt, dataset_id=dataset_id)
+
+    @patch("requests.post")
+    def test_upload_data_without_dataset_id_uses_post(self, mock_post):
+        """Test that upload_data without dataset_id still uses POST method (backward compatibility)"""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "data:0:0000001"}
+        mock_post.return_value = mock_response
+
+        examples = [
+            IOPair(input="new input 1", output="new output 1"),
+        ]
+        system_prompt = "new system prompt"
+
+        result = self.client.upload_data(examples, system_prompt)
+
+        # Verify POST was called once
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        self.assertIn("/data/seed", call_args[1]['url'] if 'url' in call_args[1] else str(call_args))
+        # Ensure it's not calling the specific dataset endpoint
+        self.assertNotIn("/data/seed/data:", call_args[1]['url'] if 'url' in call_args[1] else str(call_args))
+        
+        # Verify the result
+        self.assertEqual(result, UploadResponse(id="data:0:0000001"))
 
     @patch("requests.post")
     def test_generate_metric_questions(self, mock_post):

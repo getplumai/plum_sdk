@@ -18,7 +18,7 @@ The Plum SDK allows you to upload training examples, generate and define metric 
 ### Basic Usage
 
 ```python
-from plum_sdk import PlumClient, TrainingExample
+from plum_sdk import PlumClient, IOPair
 
 # Initialize the SDK with your API key
 api_key = "YOUR_API_KEY"
@@ -29,15 +29,15 @@ plum_client = PlumClient(api_key)
 
 # Create training examples
 training_examples = [
-    TrainingExample(
+    IOPair(
         input="What is the capital of France?",
         output="The capital of France is Paris."
     ),
-    TrainingExample(
+    IOPair(
         input="How do I make pasta?",
         output="1. Boil water\n2. Add salt\n3. Cook pasta until al dente"
     ),
-    TrainingExample(
+    IOPair(
         id="custom_id_123",
         input="What is machine learning?",
         output="Machine learning is a branch of artificial intelligence that focuses on building systems that learn from data."
@@ -50,6 +50,33 @@ system_prompt = "You are a helpful assistant that provides accurate and concise 
 # Upload the data
 response = plum_client.upload_data(training_examples, system_prompt)
 print(f"Dataset uploaded with ID: {response.id}")
+```
+
+### Updating an Existing Dataset
+
+You can also upload training examples to update an existing dataset by providing the dataset ID:
+
+```python
+# Update an existing dataset with new training examples
+existing_dataset_id = "data:0:123456"  # ID from a previous dataset
+new_training_examples = [
+    IOPair(
+        input="What is the capital of Italy?",
+        output="The capital of Italy is Rome."
+    ),
+    IOPair(
+        input="How do you say 'hello' in Spanish?",
+        output="'Hello' in Spanish is 'Hola'."
+    )
+]
+
+# This will overwrite the existing dataset with the new data
+response = plum_client.upload_data(
+    training_examples=new_training_examples, 
+    system_prompt=system_prompt,
+    dataset_id=existing_dataset_id
+)
+print(f"Dataset updated with ID: {response.id}")
 ```
 
 ### Adding Individual Examples to an Existing Dataset
@@ -256,8 +283,8 @@ for definition in metric_details.definitions:
 - `base_url` (str, optional): Custom base URL for the Plum API (defaults to "https://beta.getplum.ai/v1")
 
 #### Methods
-- `upload_data(training_examples: List[TrainingExample], system_prompt: str) -> UploadResponse`: 
-  Uploads training examples and system prompt to Plum DB
+- `upload_data(training_examples: List[IOPair], system_prompt: str, dataset_id: Optional[str] = None) -> UploadResponse`: 
+  Uploads training examples and system prompt to create a new dataset or update an existing one. If dataset_id is provided, overwrites the existing dataset; otherwise creates a new dataset.
   
 - `upload_pair(dataset_id: str, input_text: str, output_text: str, pair_id: Optional[str] = None, labels: Optional[List[str]] = None) -> PairUploadResponse`:
   Adds a single input-output pair to an existing dataset
@@ -291,8 +318,8 @@ for definition in metric_details.definitions:
 
 ### Data Classes
 
-#### TrainingExample
-A dataclass representing a single training example:
+#### IOPair
+A dataclass representing a single example of your application's interaction with an LLM:
 - `input` (str): The input text
 - `output` (str): The output text produced by your LLM
 - `id` (Optional[str]): Optional custom identifier for the example

@@ -16,11 +16,13 @@ class TestResponseFiltering(unittest.TestCase):
             "id": "test123",
             "extra_field": "should_be_filtered_out",
             "another_field": {"nested": "data"},
-            "random_array": [1, 2, 3]
+            "random_array": [1, 2, 3],
         }
-        
-        filtered = self.client._filter_response_for_dataclass(mock_response, UploadResponse)
-        
+
+        filtered = self.client._filter_response_for_dataclass(
+            mock_response, UploadResponse
+        )
+
         # Should only contain 'id' field
         self.assertEqual(filtered, {"id": "test123"})
         self.assertNotIn("extra_field", filtered)
@@ -41,15 +43,17 @@ class TestResponseFiltering(unittest.TestCase):
             "max_score": 1.0,
             "lowest_scoring_pairs": [],
             "extra_field": "should_be_filtered",
-            "unwanted_data": {"complex": "object"}
+            "unwanted_data": {"complex": "object"},
         }
-        
-        filtered_metric = self.client._filter_response_for_dataclass(metric_response, MetricScore)
-        
+
+        filtered_metric = self.client._filter_response_for_dataclass(
+            metric_response, MetricScore
+        )
+
         # Should not contain extra fields
         self.assertNotIn("extra_field", filtered_metric)
         self.assertNotIn("unwanted_data", filtered_metric)
-        
+
         # Should contain valid fields
         self.assertIn("metric", filtered_metric)
         self.assertIn("mean_score", filtered_metric)
@@ -68,13 +72,17 @@ class TestResponseFiltering(unittest.TestCase):
             "pair_id": "pair123",
             "score_reason": "Low accuracy",
             "irrelevant_field": "should_be_removed",
-            "metadata": {"timestamp": "2023-01-01"}
+            "metadata": {"timestamp": "2023-01-01"},
         }
-        
-        filtered_pair = self.client._filter_response_for_dataclass(pair_response, ScoringPair)
-        
+
+        filtered_pair = self.client._filter_response_for_dataclass(
+            pair_response, ScoringPair
+        )
+
         # Should only contain pair_id and score_reason
-        self.assertEqual(filtered_pair, {"pair_id": "pair123", "score_reason": "Low accuracy"})
+        self.assertEqual(
+            filtered_pair, {"pair_id": "pair123", "score_reason": "Low accuracy"}
+        )
         self.assertNotIn("irrelevant_field", filtered_pair)
         self.assertNotIn("metadata", filtered_pair)
 
@@ -84,15 +92,17 @@ class TestResponseFiltering(unittest.TestCase):
         mixed_response = {
             "id": "valid_id",
             "invalid_field_1": "should_be_removed",
-            "invalid_field_2": {"nested": "data"}
+            "invalid_field_2": {"nested": "data"},
         }
-        
-        filtered = self.client._filter_response_for_dataclass(mixed_response, UploadResponse)
-        
+
+        filtered = self.client._filter_response_for_dataclass(
+            mixed_response, UploadResponse
+        )
+
         # Should preserve valid field
         self.assertIn("id", filtered)
         self.assertEqual(filtered["id"], "valid_id")
-        
+
         # Should remove invalid fields
         self.assertNotIn("invalid_field_1", filtered)
         self.assertNotIn("invalid_field_2", filtered)
@@ -100,17 +110,21 @@ class TestResponseFiltering(unittest.TestCase):
     def test_filtering_with_empty_response(self):
         """Test filtering behavior with empty response."""
         empty_response = {}
-        
-        filtered = self.client._filter_response_for_dataclass(empty_response, UploadResponse)
-        
+
+        filtered = self.client._filter_response_for_dataclass(
+            empty_response, UploadResponse
+        )
+
         self.assertEqual(filtered, {})
 
     def test_filtering_with_all_valid_fields(self):
         """Test filtering when all fields are valid."""
         valid_response = {"id": "test123"}
-        
-        filtered = self.client._filter_response_for_dataclass(valid_response, UploadResponse)
-        
+
+        filtered = self.client._filter_response_for_dataclass(
+            valid_response, UploadResponse
+        )
+
         self.assertEqual(filtered, valid_response)
 
 
