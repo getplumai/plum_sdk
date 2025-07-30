@@ -3,7 +3,7 @@ from typing import List, Optional
 
 
 @dataclass
-class TrainingExample:
+class IOPair:
     input: str
     output: str
     id: Optional[str] = None
@@ -77,9 +77,9 @@ class IOPairMeta:
 class IOPair:
     """An input-output pair from a dataset."""
 
-    id: str
     input: str
     output: str
+    id: Optional[str] = None
     metadata: Optional[IOPairMeta] = None
     input_media: Optional[bytes] = None
     use_media_mime_type: Optional[str] = None

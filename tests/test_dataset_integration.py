@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 import requests
-from plum_sdk import PlumClient, IOPair, IOPairMeta, Dataset, TrainingExample
+from plum_sdk import PlumClient, IOPair, IOPairMeta, Dataset, IOPair
 
 
 class TestDatasetIntegration(unittest.TestCase):
@@ -48,10 +48,8 @@ class TestDatasetIntegration(unittest.TestCase):
 
         # Upload training examples
         examples = [
-            TrainingExample(
-                input="What is AI?", output="AI is artificial intelligence"
-            ),
-            TrainingExample(
+            IOPair(input="What is AI?", output="AI is artificial intelligence"),
+            IOPair(
                 input="How does ML work?", output="ML uses algorithms to learn patterns"
             ),
         ]
